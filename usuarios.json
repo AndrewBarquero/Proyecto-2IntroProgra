@@ -1,1 +1,26 @@
-
+[
+    {
+        "nombre": "Andrew",
+        "contrasena": "1234",
+        "victorias_atacante": 0,
+        "victorias_defensor": 0
+    },
+    {
+        "nombre": "Ana Lau",
+        "contrasena": "Remy",
+        "victorias_atacante": 0,
+        "victorias_defensor": 0
+    },
+    {
+        "nombre": "Guillermo",
+        "contrasena": "JGMF",
+        "victorias_atacante": 0,
+        "victorias_defensor": 0
+    },
+    {
+        "nombre": "Hola",
+        "contrasena": "hola",
+        "victorias_atacante": 0,
+        "victorias_defensor": 0
+    }
+]

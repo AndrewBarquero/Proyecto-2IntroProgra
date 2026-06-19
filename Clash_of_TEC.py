@@ -11,11 +11,12 @@ class Usuario:
     def __init__(self, nombre, contraseña):
         self.nombre = nombre
         self.contraseña = contraseña
-        self.vic_defensor = 0
-        self.vic_atacante = 0
+        self.victorias_atacante = 0
+        self.victorias_defensor = 0
 
-usuario1 = Usuario("Andrew", "2008")
-usuario1.guardar_usuario()
+
+jugador1_listo = False
+jugador2_listo = False
 #==========================================================================================================================================================================
 ventana_principal = tk.Tk()
 ventana_principal.geometry("+300+150")
@@ -95,11 +96,41 @@ def jugar():
 
         entrada_contraseña1 = tk.Entry(registrar1, width=15)
         entrada_contraseña1.place(relx=0.3,rely=0.51)
+        
 
-        boton_ingresar = tk.Button(registrar1,text="Ingresar",width=8, 
+        def jugador1_preparado():
+            global jugador1_listo
+            texto_label1_4.place_forget()
+            entrada_usuario1.place_forget()
+            texto_label1_5 .place_forget()
+            entrada_contraseña1.place_forget()
+            boton_ingresar1.place_forget()
+            texto_label1_6 = tk.Label(registrar1, text="Jugador 1 listo", 
+            bg="#b6a38d", fg="red", justify="center",
+            font=("Arial", 13, "bold"))
+            texto_label1_6.place(relx=0.3, rely=0.4)
+            jugador1_listo = True
+
+
+        def iniciar_sesion():
+
+            with open("usuarios.json", "r") as archivo:
+                usuarios = json.load(archivo)
+
+            for usuario in usuarios:
+                if (usuario["nombre"] == entrada_usuario1.get() and
+                    usuario["contrasena"] == entrada_contraseña1.get()):
+                    jugador1_preparado()
+                    return usuario
+            texto_label1_4.config(text="Usuario incorrecto")
+            texto_label1_5.config(text="O contraseña incorrecto")
+            return None
+
+        boton_ingresar1 = tk.Button(registrar1,text="Ingresar",width=8, 
             relief="groove",bd=5, bg="#b6a38d", 
-            fg="#462d1c", command=pestaña_iniciar_sesion1, font=(8))
-        boton_ingresar.place(relx=0.3,rely=0.6)
+            fg="#462d1c", command=iniciar_sesion, font=(8))
+        boton_ingresar1.place(relx=0.3,rely=0.6)
+
 
     def pestaña_crear_cuenta1():
         texto_label1_1.place_forget()
@@ -123,16 +154,52 @@ def jugar():
 
         entrada_contraseña1 = tk.Entry(registrar1, width=15)
         entrada_contraseña1.place(relx=0.3,rely=0.51)
+
+        def guardar_usuario(usuario):
+            try:
+                with open("usuarios.json", "r") as archivo:
+                    usuarios = json.load(archivo)
+            except (FileNotFoundError, json.JSONDecodeError):
+                usuarios = []
+
+            for usuario_json in usuarios:
+                if usuario_json["nombre"] == entrada_usuario1.get():
+                    texto_label1_4.config(text="El nombre de usuario")
+                    texto_label1_5.config(text="ya esta en uso")
+                    return
+
+            usuarios.append({
+                "nombre": usuario.nombre,
+                "contrasena": usuario.contraseña,
+                "victorias_atacante": usuario.victorias_atacante,
+                "victorias_defensor": usuario.victorias_defensor})
+
+            with open("usuarios.json", "w") as archivo:
+                json.dump(usuarios, archivo, indent=4)
+            jugador1_preparado()
+
+        def jugador1_preparado():
+            global jugador1_listo
+            texto_label1_4.place_forget()
+            entrada_usuario1.place_forget()
+            texto_label1_5 .place_forget()
+            entrada_contraseña1.place_forget()
+            boton_ingresar1.place_forget()
+            texto_label1_6 = tk.Label(registrar1, text="Jugador 1 listo", 
+            bg="#b6a38d", fg="red", justify="center",
+            font=("Arial", 13, "bold"))
+            texto_label1_6.place(relx=0.3, rely=0.4)
+            jugador1_listo = True
          
         def crear_cuenta():
-            nombre_usuario = entrada_usuario1.get()
-            contraseña = entrada_contraseña1.get()
-             
+            nuevo_usuario = Usuario(entrada_usuario1.get(), entrada_contraseña1.get())
+            guardar_usuario(nuevo_usuario)
+            
 
-        boton_ingresar = tk.Button(registrar1,text="Crear",width=8, 
+        boton_ingresar1 = tk.Button(registrar1,text="Crear",width=8, 
             relief="groove",bd=5, bg="#b6a38d", 
             fg="#462d1c", command=crear_cuenta, font=(8))
-        boton_ingresar.place(relx=0.3,rely=0.6)
+        boton_ingresar1.place(relx=0.3,rely=0.6)
 
 
     boton_iniciar_sesion1 = tk.Button(registrar1, text="Iniciar sesion",width=10, 
@@ -158,17 +225,22 @@ def jugar():
     tk.Label(registrar2, text="Quien sera el jugador 2?", 
             bg="#b6a38d", fg="blue", justify="center",
             font=("Arial", 13, "bold")).place(relx=0.11, rely=0.15)
-    
+    #===========================================================================
     def atras():
+        global jugador1_listo, jugador2_listo
         registrar1.place_forget()
         registrar2.place_forget()
-    tk.Button(registrar1, text="Atras",width=10, 
+        jugador1_listo = False
+        jugador2_listo = False
+    boton_atras1 =tk.Button(registrar1, text="Atras",width=10, 
                             relief="groove",bd=5, bg="#b6a38d", 
-                            fg="#462d1c", command=atras).place(relx=0.35,rely=0.8)
-    tk.Button(registrar2, text="Atras",width=10, 
+                            fg="#462d1c", command=atras)
+    boton_atras1.place(relx=0.35,rely=0.8)
+    boton_atras2 = tk.Button(registrar2, text="Atras",width=10, 
                             relief="groove",bd=5, bg="#b6a38d", 
-                            fg="#462d1c", command=atras).place(relx=0.35,rely=0.8)
-#======================Frame donde se inicia sesion o se crea la cuenta=======================
+                            fg="#462d1c", command=atras)
+    boton_atras2.place(relx=0.35,rely=0.8)
+#=========================================================================================
 
 
 

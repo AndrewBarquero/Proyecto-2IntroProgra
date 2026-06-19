@@ -41,24 +41,16 @@ print(usuario1)
 import tkinter as tk
 
 root = tk.Tk()
+mensaje = tk.Label(root, text="Palabra correcta")
 
-# Menú principal
-lbl_titulo = tk.Label(root, text="Mi Juego")
-lbl_titulo.pack()
-
-# Frame oculto
-frame_login = tk.Frame(root)
-
-tk.Label(frame_login, text="Iniciar Sesión").pack()
-tk.Button(frame_login, text="Entrar").pack()
-
-tk.Label(frame_login, text="Crear Cuenta").pack()
-tk.Button(frame_login, text="Registrarse").pack()
-
-def jugar():
-    frame_login.pack(pady=20)
-
-btn_jugar = tk.Button(root, text="Jugar", command=jugar)
-btn_jugar.pack()
+entrada = tk.Entry(root)
+entrada.pack()
+def leer():
+    palabra = entrada.get()
+    print(palabra)
+    print(type(palabra))
+    if palabra == "Hola":
+        mensaje.pack()
+tk.Button(root, text="Boton", command=leer).pack()
 
 root.mainloop()
