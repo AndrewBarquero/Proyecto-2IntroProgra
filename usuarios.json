@@ -22,5 +22,17 @@
         "contrasena": "hola",
         "victorias_atacante": 0,
         "victorias_defensor": 0
+    },
+    {
+        "nombre": "Hola2",
+        "contrasena": "hola2",
+        "victorias_atacante": 0,
+        "victorias_defensor": 0
+    },
+    {
+        "nombre": "Alitas",
+        "contrasena": "1985",
+        "victorias_atacante": 0,
+        "victorias_defensor": 0
     }
 ]
