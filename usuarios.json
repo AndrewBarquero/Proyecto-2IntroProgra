@@ -34,5 +34,11 @@
         "contrasena": "1985",
         "victorias_atacante": 0,
         "victorias_defensor": 0
+    },
+    {
+        "nombre": "cris",
+        "contrasena": "4321",
+        "victorias_atacante": 0,
+        "victorias_defensor": 0
     }
 ]

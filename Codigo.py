@@ -15,87 +15,173 @@ class Usuario:
         self.victorias_atacante = 0
         self.victorias_defensor = 0
 
-class Torre:
-    def __init__(self, valor, daño, vida, alcance, costo, fila=None, columna=None):
-        self.valor = valor
-        self.daño = daño
+class Estructura:
+    """
+    Clase base para todo lo que el atacante puede destruir durante el combate:
+    muros, torres y la base central. Centraliza la vida y el daño recibido
+    para no repetir la misma lógica en cada subclase.
+    """
+    def __init__(self, vida, fila, columna):
         self.vida_max = vida
         self.vida = vida
-        self.alcance = alcance
-        self.costo = costo
-        self.tipo = ""
-
-        # Posición dentro del mapa
         self.fila = fila
         self.columna = columna
 
-        self.viva = True
-        self.cooldown = 0  # sirve para que no dispare cada milisegundo
-
-    def copiar(self, fila, columna):
-        return Torre(self.valor, self.daño, self.vida_max, self.alcance, self.costo, fila, columna)
-
-    def recibir_dano(self, cantidad):
-        self.vida -= cantidad
-        if self.vida <= 0:
+    def recibir_daño(self, daño):
+        """Resta vida a la estructura. Devuelve True si quedó destruida."""
+        self.vida -= daño
+        if self.vida < 0:
             self.vida = 0
-            self.viva = False
-            return True
-        return False
+        return self.vida <= 0
 
-    def distancia_a(self, enemigo):
-        return hypot(self.fila - enemigo.fila, self.columna - enemigo.columna)
+
+class Muro(Estructura):
+    VIDA_BASE = 40
+
+    def __init__(self, fila, columna):
+        super().__init__(Muro.VIDA_BASE, fila, columna)
+
+
+class BaseCentral(Estructura):
+    VIDA_BASE = 200
+
+    def __init__(self, fila, columna):
+        super().__init__(BaseCentral.VIDA_BASE, fila, columna)
+
+
+class Torre(Estructura):
+    def __init__(self, valor, daño, vida, alcance, costo, fila=None, columna=None):
+        super().__init__(vida, fila, columna)
+        self.valor = valor
+        self.daño = daño
+        self.alcance = alcance
+        self.costo = costo
+        self.objetivo = None  # enemigo que esta torre está atacando en este momento
 
     def en_rango(self, enemigo):
-        return self.distancia_a(enemigo) <= self.alcance
+        """Revisa si un enemigo está dentro del alcance de esta torre."""
+        distancia = hypot(self.fila - enemigo.fila, self.columna - enemigo.columna)
+        return distancia <= self.alcance
+
+    def elegir_objetivo(self, enemigos_vivos):
+        """
+        Si el objetivo actual sigue vivo y en rango, lo conserva.
+        Si no, busca entre los enemigos vivos el más cercano que esté en rango.
+        """
+        if self.objetivo is not None and self.objetivo.vida > 0 and self.en_rango(self.objetivo):
+            return self.objetivo
+
+        candidatos = [enemigo for enemigo in enemigos_vivos if self.en_rango(enemigo)]
+        if not candidatos:
+            self.objetivo = None
+            return None
+
+        self.objetivo = min(
+            candidatos,
+            key=lambda enemigo: hypot(self.fila - enemigo.fila, self.columna - enemigo.columna)
+        )
+        return self.objetivo
+
+    def atacar(self):
+        """
+        Le hace daño al objetivo actual de la torre.
+        Devuelve al enemigo si murió por este ataque, o None si sigue vivo.
+        """
+        if self.objetivo is None:
+            return None
+        destruido = self.objetivo.recibir_daño(self.daño)
+        if destruido:
+            enemigo_eliminado = self.objetivo
+            self.objetivo = None
+            return enemigo_eliminado
+        return None
 
 
 class Enemigo:
-    def __init__(self, daño, vida, rapidez, costo, fila=None, columna=None):
+    def __init__(self, daño, vida, rapidez, costo):
         self.daño = daño
         self.vida_max = vida
         self.vida = vida
         self.rapidez = rapidez
         self.costo = costo
+        # Estos atributos se completan cuando el enemigo se coloca en el tablero
+        self.fila = None
+        self.columna = None
+        self.objetivo = None       # Torre o BaseCentral que persigue (en linea recta)
+        self.bloqueado_por = None  # Muro que le impide el paso y que debe romper primero
 
-        self.fila = fila
-        self.columna = columna
-
-        self.vivo = True
-
-        # Mientras más rapidez, menos espera entre movimientos
-        self.pasos_espera = max(1, 12 - rapidez // 2)
-        self.contador_pasos = 0
-
-    def copiar(self, fila, columna):
-        return Enemigo(self.daño, self.vida_max, self.rapidez, self.costo, fila, columna)
-
-    def recibir_dano(self, cantidad):
-        self.vida -= cantidad
-        if self.vida <= 0:
+    def recibir_daño(self, daño):
+        """Resta vida al enemigo. Devuelve True si quedó destruido."""
+        self.vida -= daño
+        if self.vida < 0:
             self.vida = 0
-            self.vivo = False
-            return True
-        return False
+        return self.vida <= 0
 
+    def buscar_objetivo(self, estructuras_vivas):
+        """
+        Busca la estructura más cercana en linea recta para ir a destruirla.
+        Solo considera torres y la base central (los muros no son un destino,
+        son obstaculos que se atacan unicamente si se interponen en el camino).
+        """
+        candidatos = [e for e in estructuras_vivas if isinstance(e, (Torre, BaseCentral))]
+        if not candidatos:
+            self.objetivo = None
+            return None
+        self.objetivo = min(
+            candidatos,
+            key=lambda estructura: hypot(self.fila - estructura.fila, self.columna - estructura.columna)
+        )
+        return self.objetivo
 
-class Estructura:
-    def __init__(self, tipo, fila, columna, vida, costo):
-        self.tipo = tipo
-        self.fila = fila
-        self.columna = columna
-        self.vida_max = vida
-        self.vida = vida
-        self.costo = costo
-        self.viva = True
+    def _golpear(self, estructura):
+        """Le pega a una estructura (muro u objetivo final). Devuelve la estructura si murió."""
+        destruido = estructura.recibir_daño(self.daño)
+        if destruido:
+            if estructura is self.bloqueado_por:
+                self.bloqueado_por = None
+            if estructura is self.objetivo:
+                self.objetivo = None
+            return estructura
+        return None
 
-    def recibir_dano(self, cantidad):
-        self.vida -= cantidad
-        if self.vida <= 0:
-            self.vida = 0
-            self.viva = False
-            return True
-        return False
+    def mover_o_atacar(self, estructuras_vivas):
+        """
+        Se ejecuta en cada paso del combate (un 'tick' del temporizador):
+        - Si hay un muro bloqueando el camino, lo ataca hasta destruirlo.
+        - Si ya esta junto a su objetivo (torre o base), lo ataca en vez de moverse.
+        - Si no, avanza en linea recta hacia su objetivo, a la velocidad de su tipo.
+        Devuelve la estructura destruida en este paso, o None si no destruyó nada.
+        """
+        if self.objetivo is None:
+            return None
+
+        if self.bloqueado_por is not None:
+            if self.bloqueado_por.vida <= 0:
+                self.bloqueado_por = None
+            else:
+                return self._golpear(self.bloqueado_por)
+
+        distancia_objetivo = hypot(self.objetivo.fila - self.fila, self.objetivo.columna - self.columna)
+        if distancia_objetivo <= 0.6:
+            return self._golpear(self.objetivo)
+
+        paso = self.rapidez * FACTOR_VELOCIDAD
+        dx = (self.objetivo.columna - self.columna) / distancia_objetivo
+        dy = (self.objetivo.fila - self.fila) / distancia_objetivo
+        nueva_fila = self.fila + dy * paso
+        nueva_columna = self.columna + dx * paso
+
+        # Si en el camino hacia la nueva posicion hay un muro vivo, se detiene a romperlo
+        for estructura in estructuras_vivas:
+            if isinstance(estructura, Muro) and estructura.vida > 0:
+                if hypot(estructura.fila - nueva_fila, estructura.columna - nueva_columna) < 0.5:
+                    self.bloqueado_por = estructura
+                    return self._golpear(estructura)
+
+        self.fila = nueva_fila
+        self.columna = nueva_columna
+        return None
+
 
 torre_basica = Torre(3,15,60,10,2)
 torre_ligera = Torre(4,10,50,15,3)
@@ -111,6 +197,17 @@ ancho_ventana = 1376
 alto_ventana = 768
 dinero_jugador1 = 30
 dinero_jugador2 = 30
+
+# ----- Variables nuevas para el turno del atacante y el sistema de rondas -----
+nombre_jugador1 = None        # nombre del usuario que juega como defensor en esta partida
+nombre_jugador2 = None        # nombre del usuario que juega como atacante en esta partida
+rondas_ganadas_defensor = 0   # rondas ganadas por el jugador 1 en la partida actual
+rondas_ganadas_atacante = 0   # rondas ganadas por el jugador 2 en la partida actual
+
+DINERO_INICIAL = 30           # dinero con el que arranca cada jugador en la ronda 1
+BONUS_RONDA = 10              # dinero extra que se suma por cada ronda que ya se jugó
+FACTOR_VELOCIDAD = 0.045      # convierte "rapidez" del enemigo en casillas avanzadas por tick
+INTERVALO_COMBATE = 150       # milisegundos entre cada paso de la simulacion de combate
 
 #==========================================================================================================================================================================
 ventana_principal = tk.Tk()
@@ -141,30 +238,55 @@ tk.Button(portada, text="JUGAR",width=15,
 def salir():
     ventana_principal.destroy()
 ventana_principal.protocol("WM_DELETE_WINDOW", ventana_principal.destroy)
+
+def actualizar_victoria(nombre, rol_ganador):
+    """
+    Suma una victoria (como 'atacante' o 'defensor') al usuario indicado
+    dentro de usuarios.json. Si el usuario no existe en el archivo (por ejemplo,
+    si nombre es None porque algo falló en el login), no hace nada.
+    """
+    if not nombre:
+        return
+    try:
+        with open("usuarios.json", "r") as archivo:
+            usuarios = json.load(archivo)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return
+
+    for usuario in usuarios:
+        if usuario["nombre"] == nombre:
+            if rol_ganador == "defensor":
+                usuario["victorias_defensor"] += 1
+            else:
+                usuario["victorias_atacante"] += 1
+            break
+
+    with open("usuarios.json", "w") as archivo:
+        json.dump(usuarios, archivo, indent=4)
+
 #===================================Frame donde se empezara el juego=========================================================== 
 
+def iniciar_partida(frame_origen=menu):
+    global dinero_jugador1, dinero_jugador2
 
+    if frame_origen is menu:
+        frame_origen.pack_forget()
+    else:
+        frame_origen.destroy()
 
+    numero_ronda = rondas_ganadas_defensor + rondas_ganadas_atacante + 1
+    dinero_jugador1 = DINERO_INICIAL + (numero_ronda - 1) * BONUS_RONDA
+    dinero_jugador2 = DINERO_INICIAL + (numero_ronda - 1) * BONUS_RONDA
 
-
-
-
-
-
-
-
-
-
-
-
-def iniciar_partida():
-    menu.pack_forget()
     juego = tk.Frame(ventana_principal,width=ancho_ventana,height=alto_ventana,bg="#b6a38d")
     juego.pack(fill="both", expand=True)
 
     tk.Label(juego, text="TURNO DEL JUGADOR 1", 
             bg="#b6a38d", fg="red", justify="center",
             font=("Arial", 25, "bold")).place(relx=0.6, rely=0.05)
+    tk.Label(juego, text=f"Ronda {numero_ronda}  |  Marcador -> Defensor: {rondas_ganadas_defensor}  Atacante: {rondas_ganadas_atacante}",
+            bg="#b6a38d", fg="#462d1c", justify="center",
+            font=("Arial", 12, "bold")).place(relx=0.62, rely=0.005)
     tk.Label(juego, text="Coloca la base central y las estructuras para defenderla \n Cada estructura cuesta dinero, asi que utilizalo sabiamente", 
             bg="#b6a38d", fg="red", justify="center",
             font=("Arial", 15, "bold")).place(relx=0.55, rely=0.1)
@@ -350,684 +472,14 @@ def iniciar_partida():
         command=lambda: seleccionar_herramienta(5)
     ).place(relx=0.66,rely=0.75)
 
-
-
-
-
-
     #===================================Frame donde se iniciara el turno del atacante============================================================
     def turno_atacante():
         global dinero_jugador1, dinero_jugador2
-
-        # ============================================================
-        # CAMBIO DE PANTALLA
-        # ============================================================
         juego.pack_forget()
-
-        atacar = tk.Frame(
-            ventana_principal,
-            width=ancho_ventana,
-            height=alto_ventana,
-            bg="#b6a38d"
-        )
+        atacar = tk.Frame(ventana_principal,width=ancho_ventana,height=alto_ventana,bg="#b6a38d")
         atacar.pack(fill="both", expand=True)
 
-        # ============================================================
-        # CONFIGURACIÓN GENERAL DEL TABLERO
-        # ============================================================
-        TAM = 40
-        FILAS_BASE = len(matriz_defensa)
-        COLUMNAS_BASE = len(matriz_defensa[0])
-
-        # El tablero del atacante tiene un borde exterior
-        FILAS = FILAS_BASE + 2
-        COLUMNAS = COLUMNAS_BASE + 2
-
-        # estado general de la batalla
-        estado = {
-            "base": None,
-            "muros": [],
-            "torres": [],
-            "enemigos": [],
-            "seleccion": 1,
-            "fase": "colocacion",   # colocacion -> combate
-            "fin": False,
-            "ganador": None
-        }
-
-        # ============================================================
-        # CLASES/AYUDAS PARA CLONAR TUS UNIDADES
-        # ============================================================
-        def crear_torre_en_tablero(plantilla, fila, columna):
-            nueva = Torre(plantilla.valor, plantilla.daño, plantilla.vida, plantilla.alcance, plantilla.costo)
-            nueva.fila = fila
-            nueva.columna = columna
-            nueva.vida_max = plantilla.vida
-            nueva.vida = plantilla.vida
-            nueva.viva = True
-            nueva.cooldown = 0
-            return nueva
-
-        def crear_enemigo_en_tablero(plantilla, fila, columna):
-            nuevo = Enemigo(plantilla.daño, plantilla.vida, plantilla.rapidez, plantilla.costo)
-            nuevo.fila = fila
-            nuevo.columna = columna
-            nuevo.vida_max = plantilla.vida
-            nuevo.vida = plantilla.vida
-            nuevo.vivo = True
-            nuevo.pasos_espera = max(1, 12 - plantilla.rapidez // 2)
-            nuevo.contador_pasos = 0
-            return nuevo
-
-        # ============================================================
-        # MENSAJES Y TEXTOS
-        # ============================================================
-        tk.Label(
-            atacar,
-            text="TURNO DEL JUGADOR 2",
-            bg="#b6a38d",
-            fg="red",
-            justify="center",
-            font=("Arial", 25, "bold")
-        ).place(relx=0.6, rely=0.05)
-
-        tk.Label(
-            atacar,
-            text="Coloca enemigos en el borde exterior y luego inicia el combate.",
-            bg="#b6a38d",
-            fg="red",
-            justify="center",
-            font=("Arial", 12, "bold")
-        ).place(relx=0.54, rely=0.11)
-
-        texto_estado = tk.Label(
-            atacar,
-            text="Fase de colocación: haz click en el borde para poner enemigos.",
-            bg="#b6a38d",
-            fg="red",
-            justify="center",
-            font=("Arial", 10, "bold")
-        )
-        texto_estado.place(relx=0.55, rely=0.17)
-
-        texto_dinero_atacante = tk.Label(
-            atacar,
-            text=f"Dinero atacante: {dinero_jugador2}",
-            bg="#b6a38d",
-            fg="gold",
-            justify="center",
-            font=("Arial", 13, "bold")
-        )
-        texto_dinero_atacante.place(relx=0.78, rely=0.84)
-
-        texto_dinero_defensor = tk.Label(
-            atacar,
-            text=f"Dinero defensor: {dinero_jugador1}",
-            bg="#b6a38d",
-            fg="gold",
-            justify="center",
-            font=("Arial", 13, "bold")
-        )
-        texto_dinero_defensor.place(relx=0.78, rely=0.88)
-
-        texto_unidad = tk.Label(
-            atacar,
-            text="Unidad actual: Enemigo básico",
-            bg="#b6a38d",
-            fg="red",
-            justify="center",
-            font=("Arial", 11, "bold")
-        )
-        texto_unidad.place(relx=0.75, rely=0.78)
-
-        # ============================================================
-        # FONDO / MARCO
-        # ============================================================
-        img = Image.open("Imagenes/Marco.PNG")
-        nuevo_ancho = int(img.width * (768 / 270))
-        nuevo_alto = int(img.height * (768 / 270))
-        img = img.resize((nuevo_ancho, nuevo_alto), Image.Resampling.LANCZOS)
-        imagen_tk3 = ImageTk.PhotoImage(img)
-
-        imagen_fondo = tk.Label(atacar, image=imagen_tk3)
-        imagen_fondo.image = imagen_tk3
-        imagen_fondo.place(relx=0, rely=0)
-
-        # ============================================================
-        # TABLERO DE COMBATE
-        # ============================================================
-        canvas_batalla = tk.Canvas(
-            atacar,
-            width=COLUMNAS * TAM,
-            height=FILAS * TAM,
-            bg="white",
-            highlightthickness=0
-        )
-        canvas_batalla.place(relx=0.04, rely=0.10)
-
-        colores = {
-            0: "white",     # vacío
-            1: "gold",      # base central
-            2: "gray",      # muro
-            3: "blue",      # torre básica
-            4: "green",     # torre ligera
-            5: "purple"     # torre pesada
-        }
-
-        colores_enemigos = {
-            1: "tomato",
-            2: "orange",
-            3: "darkred"
-        }
-
-        # ============================================================
-        # CONVERSIÓN DE LA MATRIZ DEL DEFENSOR A OBJETOS DEL ATAQUE
-        # ============================================================
-        def cargar_defensa_desde_matriz():
-            for fila in range(FILAS_BASE):
-                for columna in range(COLUMNAS_BASE):
-                    valor = matriz_defensa[fila][columna]
-
-                    # desplazamiento +1 por el borde exterior
-                    f = fila + 1
-                    c = columna + 1
-
-                    if valor == 1:
-                        estado["base"] = Estructura("base_central", f, c, vida=250, costo=0)
-
-                    elif valor == 2:
-                        estado["muros"].append(Estructura("muro", f, c, vida=40, costo=1))
-
-                    elif valor == 3:
-                        estado["torres"].append(crear_torre_en_tablero(torre_basica, f, c))
-
-                    elif valor == 4:
-                        estado["torres"].append(crear_torre_en_tablero(torre_ligera, f, c))
-
-                    elif valor == 5:
-                        estado["torres"].append(crear_torre_en_tablero(torre_pesada, f, c))
-
-        cargar_defensa_desde_matriz()
-
-        # ============================================================
-        # HERRAMIENTAS DEL ATACANTE
-        # ============================================================
-        enemigos_base = {
-            1: enemigo_basico,
-            2: enemigo_rapido,
-            3: enemigo_fuerte
-        }
-
-        def seleccionar_enemigo(id_enemigo, nombre):
-            estado["seleccion"] = id_enemigo
-            texto_unidad.config(text=f"Unidad actual: {nombre}")
-
-        # ============================================================
-        # FUNCIONES DE APOYO PARA LA BATALLA
-        # ============================================================
-        def celda_dentro(fila, columna):
-            return 0 <= fila < FILAS and 0 <= columna < COLUMNAS
-
-        def es_borde(fila, columna):
-            return fila == 0 or fila == FILAS - 1 or columna == 0 or columna == COLUMNAS - 1
-
-        def estructura_en_posicion(fila, columna):
-            if estado["base"] and estado["base"].viva:
-                if estado["base"].fila == fila and estado["base"].columna == columna:
-                    return estado["base"]
-
-            for muro in estado["muros"]:
-                if muro.viva and muro.fila == fila and muro.columna == columna:
-                    return muro
-
-            for torre in estado["torres"]:
-                if torre.viva and torre.fila == fila and torre.columna == columna:
-                    return torre
-
-            return None
-
-        def estructuras_vivas():
-            lista = []
-
-            if estado["base"] and estado["base"].viva:
-                lista.append(estado["base"])
-
-            lista.extend([m for m in estado["muros"] if m.viva])
-            lista.extend([t for t in estado["torres"] if t.viva])
-
-            return lista
-
-        def enemigo_mas_cercano(enemigo):
-            vivas = estructuras_vivas()
-            if not vivas:
-                return None
-
-            # distancia Manhattan, suficiente para este caso
-            return min(
-                vivas,
-                key=lambda s: abs(s.fila - enemigo.fila) + abs(s.columna - enemigo.columna)
-            )
-
-        # ============================================================
-        # DIBUJO DEL TABLERO
-        # ============================================================
-        def dibujar_tablero():
-            canvas_batalla.delete("all")
-
-            for fila in range(FILAS):
-                for columna in range(COLUMNAS):
-                    x1 = columna * TAM
-                    y1 = fila * TAM
-                    x2 = x1 + TAM
-                    y2 = y1 + TAM
-
-                    if es_borde(fila, columna):
-                        fill = "#d9b38c"
-                    else:
-                        fill = "white"
-
-                    canvas_batalla.create_rectangle(
-                        x1, y1, x2, y2,
-                        fill=fill,
-                        outline="black"
-                    )
-
-            # base central
-            if estado["base"] and estado["base"].viva:
-                b = estado["base"]
-                x1 = b.columna * TAM
-                y1 = b.fila * TAM
-                canvas_batalla.create_rectangle(x1, y1, x1 + TAM, y1 + TAM, fill="gold", outline="black")
-                canvas_batalla.create_text(x1 + TAM / 2, y1 + TAM / 2, text="B", fill="black", font=("Arial", 10, "bold"))
-
-            # muros
-            for muro in estado["muros"]:
-                if muro.viva:
-                    x1 = muro.columna * TAM
-                    y1 = muro.fila * TAM
-                    canvas_batalla.create_rectangle(x1, y1, x1 + TAM, y1 + TAM, fill="gray", outline="black")
-                    canvas_batalla.create_text(x1 + TAM / 2, y1 + TAM / 2, text="M", fill="white", font=("Arial", 9, "bold"))
-
-            # torres
-            for torre in estado["torres"]:
-                if torre.viva:
-                    x1 = torre.columna * TAM
-                    y1 = torre.fila * TAM
-
-                    if torre.valor == 3:
-                        fill = "blue"
-                        etiqueta = "T1"
-                    elif torre.valor == 4:
-                        fill = "green"
-                        etiqueta = "T2"
-                    else:
-                        fill = "purple"
-                        etiqueta = "T3"
-
-                    canvas_batalla.create_rectangle(x1, y1, x1 + TAM, y1 + TAM, fill=fill, outline="black")
-                    canvas_batalla.create_text(x1 + TAM / 2, y1 + TAM / 2, text=etiqueta, fill="white", font=("Arial", 9, "bold"))
-
-            # enemigos
-            for enemigo in estado["enemigos"]:
-                if enemigo.vivo:
-                    x1 = enemigo.columna * TAM
-                    y1 = enemigo.fila * TAM
-
-                    if enemigo.daño == 25:
-                        fill = colores_enemigos[1]
-                        etiqueta = "E1"
-                    elif enemigo.daño == 20:
-                        fill = colores_enemigos[2]
-                        etiqueta = "E2"
-                    else:
-                        fill = colores_enemigos[3]
-                        etiqueta = "E3"
-
-                    canvas_batalla.create_oval(
-                        x1 + 6, y1 + 6, x1 + TAM - 6, y1 + TAM - 6,
-                        fill=fill,
-                        outline="black"
-                    )
-                    canvas_batalla.create_text(x1 + TAM / 2, y1 + TAM / 2, text=etiqueta, fill="white", font=("Arial", 8, "bold"))
-
-        # ============================================================
-        # PROYECTIL DE LA TORRE
-        # ============================================================
-        def disparar_proyectil(origen_torre, objetivo_enemigo, callback_final):
-            if not origen_torre.viva or not objetivo_enemigo.vivo:
-                return
-
-            x1 = origen_torre.columna * TAM + TAM // 2
-            y1 = origen_torre.fila * TAM + TAM // 2
-            x2 = objetivo_enemigo.columna * TAM + TAM // 2
-            y2 = objetivo_enemigo.fila * TAM + TAM // 2
-
-            bola = canvas_batalla.create_oval(
-                x1 - 5, y1 - 5, x1 + 5, y1 + 5,
-                fill="yellow",
-                outline="black"
-            )
-
-            pasos = 10
-
-            def animar(paso=0):
-                if paso > pasos:
-                    canvas_batalla.delete(bola)
-                    callback_final()
-                    return
-
-                x = x1 + (x2 - x1) * paso / pasos
-                y = y1 + (y2 - y1) * paso / pasos
-
-                canvas_batalla.coords(bola, x - 5, y - 5, x + 5, y + 5)
-                canvas_batalla.after(20, lambda: animar(paso + 1))
-
-            animar()
-
-        # ============================================================
-        # DAÑO DE TORRES A ENEMIGOS
-        # ============================================================
-        def aplicar_dano_torre(torre, enemigo):
-            global dinero_jugador1
-
-            if not torre.viva or not enemigo.vivo:
-                return
-
-            enemigo_muerto = enemigo.recibir_dano(torre.daño)
-
-            if enemigo_muerto:
-                dinero_jugador1 += enemigo.costo
-                texto_dinero_defensor.config(text=f"Dinero defensor: {dinero_jugador1}")
-
-        def torres_disparan():
-            # Cada torre busca un enemigo dentro de su rango.
-            # Si encuentra varios, ataca al más cercano.
-            for torre in estado["torres"]:
-                if not torre.viva:
-                    continue
-
-                if torre.cooldown > 0:
-                    torre.cooldown -= 1
-                    continue
-
-                enemigos_en_rango = [
-                    enemigo for enemigo in estado["enemigos"]
-                    if enemigo.vivo and hypot(torre.fila - enemigo.fila, torre.columna - enemigo.columna) <= torre.alcance
-                ]
-
-                if enemigos_en_rango:
-                    objetivo = min(
-                        enemigos_en_rango,
-                        key=lambda e: hypot(torre.fila - e.fila, torre.columna - e.columna)
-                    )
-
-                    torre.cooldown = 4
-
-                    disparar_proyectil(
-                        torre,
-                        objetivo,
-                        lambda t=torre, e=objetivo: aplicar_dano_torre(t, e)
-                    )
-
-        # ============================================================
-        # DAÑO DE ENEMIGOS A ESTRUCTURAS
-        # ============================================================
-        def aplicar_dano_enemigo_a_objetivo(enemigo, objetivo):
-            global dinero_jugador2
-
-            if not enemigo.vivo or not objetivo.viva:
-                return
-
-            destruida = objetivo.recibir_dano(enemigo.daño)
-
-            if destruida:
-                # Si destruye un muro o torre, el atacante gana su costo.
-                # Si destruye la base central, el atacante gana la partida.
-                if objetivo.tipo == "base_central":
-                    estado["fin"] = True
-                    estado["ganador"] = "atacante"
-                else:
-                    dinero_jugador2 += objetivo.costo
-                    texto_dinero_atacante.config(text=f"Dinero atacante: {dinero_jugador2}")
-
-        def mover_enemigo(enemigo):
-            if not enemigo.vivo:
-                return
-
-            objetivo = enemigo_mas_cercano(enemigo)
-            if objetivo is None:
-                return
-
-            # Control de rapidez
-            enemigo.contador_pasos += 1
-            if enemigo.contador_pasos < enemigo.pasos_espera:
-                return
-
-            enemigo.contador_pasos = 0
-
-            distancia = abs(objetivo.fila - enemigo.fila) + abs(objetivo.columna - enemigo.columna)
-
-            # Si ya está junto a la estructura, ataca
-            if distancia <= 1:
-                aplicar_dano_enemigo_a_objetivo(enemigo, objetivo)
-                return
-
-            # Movimiento recto simplificado:
-            # avanza en el eje donde esté más lejos del objetivo
-            df = objetivo.fila - enemigo.fila
-            dc = objetivo.columna - enemigo.columna
-
-            if abs(df) >= abs(dc):
-                if df > 0:
-                    enemigo.fila += 1
-                elif df < 0:
-                    enemigo.fila -= 1
-            else:
-                if dc > 0:
-                    enemigo.columna += 1
-                elif dc < 0:
-                    enemigo.columna -= 1
-
-            # si después de moverse ya quedó junto al objetivo, ataca
-            distancia = abs(objetivo.fila - enemigo.fila) + abs(objetivo.columna - enemigo.columna)
-            if distancia <= 1:
-                aplicar_dano_enemigo_a_objetivo(enemigo, objetivo)
-
-        # ============================================================
-        # COLOCACIÓN DE ENEMIGOS
-        # ============================================================
-        def colocar_enemigo(event):
-            global dinero_jugador2
-
-            if estado["fase"] != "colocacion" or estado["fin"]:
-                return
-
-            fila = event.y // TAM
-            columna = event.x // TAM
-
-            if not celda_dentro(fila, columna):
-                return
-
-            if not es_borde(fila, columna):
-                texto_estado.config(text="Solo puedes colocar enemigos en el borde exterior.")
-                return
-
-            plantilla = enemigos_base.get(estado["seleccion"])
-            if plantilla is None:
-                return
-
-            if dinero_jugador2 < plantilla.costo:
-                texto_estado.config(text="No tienes dinero suficiente para esa unidad.")
-                return
-
-            # no permitir poner dos enemigos en la misma celda
-            for enemigo in estado["enemigos"]:
-                if enemigo.vivo and enemigo.fila == fila and enemigo.columna == columna:
-                    texto_estado.config(text="Ya hay una unidad en esa casilla.")
-                    return
-
-            nuevo_enemigo = crear_enemigo_en_tablero(plantilla, fila, columna)
-            estado["enemigos"].append(nuevo_enemigo)
-
-            dinero_jugador2 -= nuevo_enemigo.costo
-            texto_dinero_atacante.config(text=f"Dinero atacante: {dinero_jugador2}")
-            texto_estado.config(text="Enemigo colocado en el borde.")
-
-            dibujar_tablero()
-
-        canvas_batalla.bind("<Button-1>", colocar_enemigo)
-
-        # ============================================================
-        # FIN DE LA BATALLA
-        # ============================================================
-        def finalizar_partida(ganador):
-            estado["fin"] = True
-            estado["ganador"] = ganador
-
-            if ganador == "atacante":
-                texto_estado.config(text="¡El atacante destruyó la base central y ganó la ronda!")
-            else:
-                texto_estado.config(text="El defensor ganó la ronda.")
-
-        def verificar_fin():
-            # Si la base fue destruida, gana el atacante.
-            if estado["base"] is not None and not estado["base"].viva:
-                finalizar_partida("atacante")
-                return
-
-            # Si el atacante no tiene dinero Y ya no tiene unidades vivas,
-            # gana el defensor.
-            # Si quieres que pierda inmediatamente al llegar a 0, puedes cambiar esta condición.
-            enemigos_vivos = [e for e in estado["enemigos"] if e.vivo]
-            if dinero_jugador2 <= 0 and len(enemigos_vivos) == 0 and estado["fase"] == "combate":
-                finalizar_partida("defensor")
-                return
-
-        # ============================================================
-        # CICLO PRINCIPAL DE COMBATE
-        # ============================================================
-        def ciclo_combate():
-            if estado["fin"] or estado["fase"] != "combate":
-                return
-
-            torres_disparan()
-
-            for enemigo in estado["enemigos"]:
-                mover_enemigo(enemigo)
-
-            # limpiar muertos
-            estado["enemigos"] = [e for e in estado["enemigos"] if e.vivo]
-            estado["muros"] = [m for m in estado["muros"] if m.viva]
-            estado["torres"] = [t for t in estado["torres"] if t.viva]
-
-            dibujar_tablero()
-            verificar_fin()
-
-            if not estado["fin"]:
-                canvas_batalla.after(180, ciclo_combate)
-
-        # ============================================================
-        # INICIAR COMBATE
-        # ============================================================
-        def iniciar_combate():
-            if estado["fase"] != "colocacion":
-                return
-
-            if estado["base"] is None:
-                texto_estado.config(text="No puedes iniciar: el defensor no colocó la base central.")
-                return
-
-            if len([e for e in estado["enemigos"] if e.vivo]) == 0:
-                texto_estado.config(text="Debes colocar al menos un enemigo antes de iniciar.")
-                return
-
-            estado["fase"] = "combate"
-            texto_estado.config(text="Combate iniciado.")
-            dibujar_tablero()
-            ciclo_combate()
-
-        # ============================================================
-        # BOTONES DEL ATACANTE
-        # ============================================================
-        tk.Button(
-            atacar,
-            text="Enemigo Básico",
-            width=14,
-            relief="groove",
-            bd=5,
-            bg="#b6a38d",
-            fg="#462d1c",
-            command=lambda: seleccionar_enemigo(1, "Enemigo básico")
-        ).place(relx=0.72, rely=0.20)
-
-        tk.Button(
-            atacar,
-            text="Enemigo Rápido",
-            width=14,
-            relief="groove",
-            bd=5,
-            bg="#b6a38d",
-            fg="#462d1c",
-            command=lambda: seleccionar_enemigo(2, "Enemigo rápido")
-        ).place(relx=0.72, rely=0.30)
-
-        tk.Button(
-            atacar,
-            text="Enemigo Fuerte",
-            width=14,
-            relief="groove",
-            bd=5,
-            bg="#b6a38d",
-            fg="#462d1c",
-            command=lambda: seleccionar_enemigo(3, "Enemigo fuerte")
-        ).place(relx=0.72, rely=0.40)
-
-        tk.Label(
-            atacar,
-            text="Solo puedes colocar enemigos en el borde.\nDespués presiona 'Iniciar combate'.",
-            bg="#b6a38d",
-            fg="red",
-            justify="center",
-            font=("Arial", 10, "bold")
-        ).place(relx=0.70, rely=0.50)
-
-        tk.Button(
-            atacar,
-            text="Iniciar combate",
-            width=14,
-            relief="groove",
-            bd=5,
-            bg="#b6a38d",
-            fg="#462d1c",
-            command=iniciar_combate
-        ).place(relx=0.74, rely=0.66)
-
-        def volver_menu():
-            atacar.pack_forget()
-            menu.pack(fill="both", expand=True)
-
-        tk.Button(
-            atacar,
-            text="Terminar juego",
-            width=14,
-            relief="groove",
-            bd=5,
-            bg="#b6a38d",
-            fg="#462d1c",
-            command=volver_menu
-        ).place(relx=0.74, rely=0.74)
-
-        # ============================================================
-        # DIBUJO INICIAL
-        # ============================================================
-        dibujar_tablero()
     #===============================================================================================================================
-
-
-
-
-
-
 
     def verificar_inicio_partido():
         if contador_base_central == 1:
@@ -1051,19 +503,6 @@ def iniciar_partida():
             relief="groove",bd=5, bg="#b6a38d", fg="#462d1c",
         command=terminar_juego
     ).place(relx=0.7,rely=0.95)
-    
-
-
-
-
-
-
-
-
-
-
-
-
 
 #===============================================================================================================================
 
@@ -1121,8 +560,9 @@ def jugar():
         entrada_contraseña1.place(relx=0.3,rely=0.51)
         
 
-        def jugador1_preparado():
-            global jugador1_listo
+        def jugador1_preparado(nombre):
+            global jugador1_listo, nombre_jugador1
+            nombre_jugador1 = nombre
             texto_label1_4.place_forget()
             entrada_usuario1.place_forget()
             texto_label1_5 .place_forget()
@@ -1145,7 +585,7 @@ def jugar():
             for usuario in usuarios:
                 if (usuario["nombre"] == entrada_usuario1.get() and
                     usuario["contrasena"] == entrada_contraseña1.get()):
-                    jugador1_preparado()
+                    jugador1_preparado(usuario["nombre"])
                     return usuario
             texto_label1_4.config(text="Usuario incorrecto")
             texto_label1_5.config(text="O contraseña incorrecto")
@@ -1201,10 +641,11 @@ def jugar():
 
             with open("usuarios.json", "w") as archivo:
                 json.dump(usuarios, archivo, indent=4)
-            jugador1_preparado()
+            jugador1_preparado(usuario.nombre)
 
-        def jugador1_preparado():
-            global jugador1_listo
+        def jugador1_preparado(nombre):
+            global jugador1_listo, nombre_jugador1
+            nombre_jugador1 = nombre
             texto_label1_4.place_forget()
             entrada_usuario1.place_forget()
             texto_label1_5 .place_forget()
