@@ -2,43 +2,43 @@
     {
         "nombre": "Andrew",
         "contrasena": "1234",
-        "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_atacante": 1,
+        "victorias_defensor": 2
     },
     {
         "nombre": "Ana Lau",
         "contrasena": "Remy",
-        "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_atacante": 3,
+        "victorias_defensor": 1
     },
     {
         "nombre": "Guillermo",
         "contrasena": "JGMF",
-        "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_atacante": 6,
+        "victorias_defensor": 2
     },
     {
         "nombre": "Hola",
         "contrasena": "hola",
-        "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_atacante": 5,
+        "victorias_defensor": 2
     },
     {
         "nombre": "Hola2",
         "contrasena": "hola2",
-        "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_atacante": 1,
+        "victorias_defensor": 7
     },
     {
         "nombre": "Alitas",
         "contrasena": "1985",
-        "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_atacante": 1,
+        "victorias_defensor": 1
     },
     {
         "nombre": "cris",
         "contrasena": "4321",
-        "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_atacante": 4,
+        "victorias_defensor": 4
     }
 ]

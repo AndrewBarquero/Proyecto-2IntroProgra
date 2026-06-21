@@ -2,7 +2,6 @@
 #Aqui haremos el proyecto de introduccion a la programacion
 #==========================================================================================================================================================================
 import tkinter as tk
-import time
 from PIL import Image, ImageTk
 import json
 from math import hypot
@@ -187,16 +186,16 @@ torre_basica = Torre(3,15,60,10,2)
 torre_ligera = Torre(4,10,50,15,3)
 torre_pesada = Torre(5,25,80,5,5)
 
-enemigo_basico = Enemigo(25,150,10,2)
-enemigo_rapido = Enemigo(20,90,25,4)
-enemigo_fuerte = Enemigo(50,250,5,5)
+enemigo_basico = Enemigo(25,350,10,2)
+enemigo_rapido = Enemigo(20,230,25,4)
+enemigo_fuerte = Enemigo(50,550,5,5)
 
 jugador1_listo = False
 jugador2_listo = False
 ancho_ventana = 1376
 alto_ventana = 768
 dinero_jugador1 = 30
-dinero_jugador2 = 30
+dinero_jugador2 = 40
 
 # ----- Variables nuevas para el turno del atacante y el sistema de rondas -----
 nombre_jugador1 = None        # nombre del usuario que juega como defensor en esta partida
@@ -208,6 +207,18 @@ DINERO_INICIAL = 30           # dinero con el que arranca cada jugador en la ron
 BONUS_RONDA = 10              # dinero extra que se suma por cada ronda que ya se jugó
 FACTOR_VELOCIDAD = 0.045      # convierte "rapidez" del enemigo en casillas avanzadas por tick
 INTERVALO_COMBATE = 150       # milisegundos entre cada paso de la simulacion de combate
+
+
+
+
+
+
+
+
+
+
+
+
 
 #==========================================================================================================================================================================
 ventana_principal = tk.Tk()
@@ -239,6 +250,9 @@ def salir():
     ventana_principal.destroy()
 ventana_principal.protocol("WM_DELETE_WINDOW", ventana_principal.destroy)
 
+
+
+
 def actualizar_victoria(nombre, rol_ganador):
     """
     Suma una victoria (como 'atacante' o 'defensor') al usuario indicado
@@ -264,19 +278,30 @@ def actualizar_victoria(nombre, rol_ganador):
     with open("usuarios.json", "w") as archivo:
         json.dump(usuarios, archivo, indent=4)
 
+
+
+
+
+
+
+
+
+
+
 #===================================Frame donde se empezara el juego=========================================================== 
 
-def iniciar_partida(frame_origen=menu):
+def iniciar_partida():
     global dinero_jugador1, dinero_jugador2
 
-    if frame_origen is menu:
-        frame_origen.pack_forget()
-    else:
-        frame_origen.destroy()
+    menu.pack_forget()
 
     numero_ronda = rondas_ganadas_defensor + rondas_ganadas_atacante + 1
-    dinero_jugador1 = DINERO_INICIAL + (numero_ronda - 1) * BONUS_RONDA
-    dinero_jugador2 = DINERO_INICIAL + (numero_ronda - 1) * BONUS_RONDA
+    # El dinero se hereda de la ronda anterior; solo se le suma un bono al
+    # arrancar una ronda nueva (la ronda 1 ya arranca en DINERO_INICIAL,
+    # asignado en jugar() cuando se registran los jugadores).
+    if numero_ronda > 1:
+        dinero_jugador1 += BONUS_RONDA
+        dinero_jugador2 += BONUS_RONDA
 
     juego = tk.Frame(ventana_principal,width=ancho_ventana,height=alto_ventana,bg="#b6a38d")
     juego.pack(fill="both", expand=True)
@@ -324,7 +349,6 @@ def iniciar_partida(frame_origen=menu):
             font=("Arial", 14, "bold"))
     texto_dinero.place(relx=0.8, rely=0.85)
 
-
     img = Image.open("Imagenes/Marco.PNG")
     nuevo_ancho = int(img.width * (768/270))
     nuevo_alto = int(img.height * (768/270))
@@ -335,7 +359,8 @@ def iniciar_partida(frame_origen=menu):
     imagen_cuadricula = tk.Label(juego, image=imagen_tk3)
     imagen_cuadricula.image = imagen_tk3
     imagen_cuadricula.place(relx=0,rely=0)
-
+    #====================================================================================
+    
     tamaño = 40
     tamaño_matriz = 15
     
@@ -474,10 +499,337 @@ def iniciar_partida(frame_origen=menu):
 
     #===================================Frame donde se iniciara el turno del atacante============================================================
     def turno_atacante():
-        global dinero_jugador1, dinero_jugador2
         juego.pack_forget()
         atacar = tk.Frame(ventana_principal,width=ancho_ventana,height=alto_ventana,bg="#b6a38d")
         atacar.pack(fill="both", expand=True)
+
+        tk.Label(atacar, text="TURNO DEL JUGADOR 2",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 25, "bold")).place(relx=0.6, rely=0.05)
+        tk.Label(atacar, text=f"Ronda {numero_ronda}  |  Marcador -> Defensor: {rondas_ganadas_defensor}  Atacante: {rondas_ganadas_atacante}",
+                bg="#b6a38d", fg="#462d1c", justify="center",
+                font=("Arial", 12, "bold")).place(relx=0.62, rely=0.005)
+        tk.Label(atacar, text="Coloca tus unidades unicamente en la zona sombreada del borde \n Cuando termines, presiona 'Iniciar Ataque'",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 15, "bold")).place(relx=0.55, rely=0.1)
+        texto_explicacion_atacante = tk.Label(atacar, text="Cada unidad ira en linea recta hacia la torre o base mas cercana \n Si un muro se interpone en el camino, lo atacara hasta destruirlo antes de seguir",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 12, "bold"))
+        texto_explicacion_atacante.place(relx=0.55, rely=0.18)
+        tk.Label(atacar, text="Tipo de unidad",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 12, "bold")).place(relx=0.63, rely=0.30)
+        tk.Label(atacar, text="Daño\n\n\n25\n\n\n\n20\n\n\n\n50",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 12, "bold")).place(relx=0.72, rely=0.30)
+        tk.Label(atacar, text="Velocidad\n\n\n10\n\n\n\n25\n\n\n\n5",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 12, "bold")).place(relx=0.79, rely=0.30)
+        tk.Label(atacar, text="Costo\n\n\n2\n\n\n\n4\n\n\n\n5",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 12, "bold")).place(relx=0.88, rely=0.30)
+
+        texto_dinero2 = tk.Label(atacar, text=f"Dinero atacante: {dinero_jugador2}",
+                bg="#b6a38d", fg="gold", justify="center",
+                font=("Arial", 14, "bold"))
+        texto_dinero2.place(relx=0.76, rely=0.78)
+
+        texto_dinero1_combate = tk.Label(atacar, text=f"Dinero defensor: {dinero_jugador1}",
+                bg="#b6a38d", fg="gold", justify="center",
+                font=("Arial", 14, "bold"))
+        texto_dinero1_combate.place(relx=0.76, rely=0.82)
+
+        img2 = Image.open("Imagenes/Marco.PNG")
+        nuevo_ancho2 = int(img2.width * (768/270))
+        nuevo_alto2 = int(img2.height * (768/270))
+        img2 = img2.resize((nuevo_ancho2, nuevo_alto2), Image.Resampling.LANCZOS)
+        imagen_tk_atacar = ImageTk.PhotoImage(img2)
+        marco_atacar = tk.Label(atacar, image=imagen_tk_atacar)
+        marco_atacar.image = imagen_tk_atacar
+        marco_atacar.place(relx=0, rely=0)
+
+        canvas_ataque = tk.Canvas(atacar, width=tamaño*tamaño_matriz,
+                                   height=tamaño*tamaño_matriz, bg="white",
+                                   highlightthickness=0)
+        canvas_ataque.place(relx=0.05, rely=0.1)
+
+        def es_borde(fila, columna):
+            return fila == 0 or fila == tamaño_matriz - 1 or columna == 0 or columna == tamaño_matriz - 1
+
+        def dibujar_cuadricula_ataque():
+            for fila in range(tamaño_matriz):
+                for columna in range(tamaño_matriz):
+                    x1 = columna * tamaño
+                    y1 = fila * tamaño
+                    x2 = x1 + tamaño
+                    y2 = y1 + tamaño
+                    if es_borde(fila, columna) and matriz_defensa[fila][columna] == 0:
+                        relleno = "#e8d9c0"  # zona habilitada para colocar enemigos
+                    else:
+                        relleno = "white"
+                    canvas_ataque.create_rectangle(x1, y1, x2, y2, fill=relleno, outline="black", tags="grid")
+        dibujar_cuadricula_ataque()
+
+        # ---- Construye las estructuras reales (con vida propia) a partir de lo que armo el defensor ----
+        def construir_estructuras(matriz):
+            plantillas_torres = {3: torre_basica, 4: torre_ligera, 5: torre_pesada}
+            nuevas_estructuras = []
+            for fila in range(len(matriz)):
+                for columna in range(len(matriz[fila])):
+                    tipo = matriz[fila][columna]
+                    if tipo == 1:
+                        nuevas_estructuras.append(BaseCentral(fila, columna))
+                    elif tipo == 2:
+                        nuevas_estructuras.append(Muro(fila, columna))
+                    elif tipo in plantillas_torres:
+                        plantilla = plantillas_torres[tipo]
+                        nuevas_estructuras.append(Torre(plantilla.valor, plantilla.daño, plantilla.vida,
+                                                         plantilla.alcance, plantilla.costo, fila, columna))
+            return nuevas_estructuras
+
+        estructuras_vivas = construir_estructuras(matriz_defensa)
+        enemigos_colocados = []
+
+        plantillas_enemigos = {1: enemigo_basico, 2: enemigo_rapido, 3: enemigo_fuerte}
+        unidades = {0: "Borrador", 1: "Enemigo básico", 2: "Enemigo rápido", 3: "Enemigo fuerte"}
+        colores_enemigos = {
+            enemigo_basico.costo: "orange",
+            enemigo_rapido.costo: "cyan",
+            enemigo_fuerte.costo: "black",
+        }
+
+        item_seleccionado_atacante = 1
+        combate_activo = False
+
+        texto_herramienta_atacante = tk.Label(atacar, text=f"Unidad actual: {unidades[item_seleccionado_atacante]}",
+                bg="#b6a38d", fg="blue", justify="center",
+                font=("Arial", 10, "bold"))
+        texto_herramienta_atacante.place(relx=0.76, rely=0.74)
+
+        def seleccionar_herramienta_atacante(id_item):
+            nonlocal item_seleccionado_atacante
+            item_seleccionado_atacante = id_item
+            texto_herramienta_atacante.config(text=f"Unidad actual: {unidades[item_seleccionado_atacante]}")
+
+        tk.Button(atacar, text="Borrar", width=8,
+                relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+            command=lambda: seleccionar_herramienta_atacante(0)
+        ).place(relx=0.7, rely=0.85)
+
+        tk.Button(atacar, text="Enemigo Básico", width=13,
+                relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+            command=lambda: seleccionar_herramienta_atacante(1)
+        ).place(relx=0.65, rely=0.42)
+
+        tk.Button(atacar, text="Enemigo Rápido", width=13,
+                relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+            command=lambda: seleccionar_herramienta_atacante(2)
+        ).place(relx=0.65, rely=0.52)
+
+        tk.Button(atacar, text="Enemigo Fuerte", width=13,
+                relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+            command=lambda: seleccionar_herramienta_atacante(3)
+        ).place(relx=0.65, rely=0.62)
+
+        def hay_enemigo_en(fila, columna):
+            return any(enemigo.vida > 0 and round(enemigo.fila) == fila and round(enemigo.columna) == columna
+                       for enemigo in enemigos_colocados)
+
+        def redibujar_combate():
+            canvas_ataque.delete("dinamico")
+            for estructura in estructuras_vivas:
+                if estructura.vida <= 0:
+                    continue
+                x1 = estructura.columna * tamaño
+                y1 = estructura.fila * tamaño
+                x2 = x1 + tamaño
+                y2 = y1 + tamaño
+                if isinstance(estructura, BaseCentral):
+                    color = colores[1]
+                elif isinstance(estructura, Muro):
+                    color = colores[2]
+                else:
+                    color = colores[estructura.valor]
+                canvas_ataque.create_rectangle(x1, y1, x2, y2, fill=color, outline="black", tags="dinamico")
+                proporcion = max(estructura.vida, 0) / estructura.vida_max
+                canvas_ataque.create_rectangle(x1, y2 - 6, x2, y2 - 2, fill="gray", outline="", tags="dinamico")
+                canvas_ataque.create_rectangle(x1, y2 - 6, x1 + (x2 - x1) * proporcion, y2 - 2, fill="red", outline="", tags="dinamico")
+
+            for enemigo in enemigos_colocados:
+                if enemigo.vida <= 0:
+                    continue
+                cx = enemigo.columna * tamaño + tamaño / 2
+                cy = enemigo.fila * tamaño + tamaño / 2
+                radio = tamaño / 2 - 8
+                color = colores_enemigos[enemigo.costo]
+                canvas_ataque.create_oval(cx - radio, cy - radio, cx + radio, cy + radio, fill=color, outline="black", tags="dinamico")
+                proporcion = max(enemigo.vida, 0) / enemigo.vida_max
+                canvas_ataque.create_rectangle(cx - radio, cy - radio - 8, cx + radio, cy - radio - 4, fill="gray", outline="", tags="dinamico")
+                canvas_ataque.create_rectangle(cx - radio, cy - radio - 8, cx - radio + (2 * radio) * proporcion, cy - radio - 4, fill="red", outline="", tags="dinamico")
+
+        def click_en_cuadricula_ataque(event):
+            global dinero_jugador2
+
+            if combate_activo:
+                return
+
+            columna = event.x // tamaño
+            fila = event.y // tamaño
+            if not (0 <= fila < tamaño_matriz and 0 <= columna < tamaño_matriz):
+                return
+            if not es_borde(fila, columna):
+                return
+            if matriz_defensa[fila][columna] != 0:
+                return
+
+            if item_seleccionado_atacante == 0:
+                for enemigo in enemigos_colocados:
+                    if enemigo.vida > 0 and round(enemigo.fila) == fila and round(enemigo.columna) == columna:
+                        enemigo.vida = 0
+                        dinero_jugador2 += enemigo.costo
+                        texto_dinero2.config(text=f"Dinero atacante: {dinero_jugador2}")
+                        break
+            else:
+                plantilla = plantillas_enemigos[item_seleccionado_atacante]
+                if dinero_jugador2 >= plantilla.costo and not hay_enemigo_en(fila, columna):
+                    nuevo_enemigo = Enemigo(plantilla.daño, plantilla.vida_max, plantilla.rapidez, plantilla.costo)
+                    nuevo_enemigo.fila = fila
+                    nuevo_enemigo.columna = columna
+                    enemigos_colocados.append(nuevo_enemigo)
+                    dinero_jugador2 -= plantilla.costo
+                    texto_dinero2.config(text=f"Dinero atacante: {dinero_jugador2}")
+
+            redibujar_combate()
+
+        canvas_ataque.bind("<Button-1>", click_en_cuadricula_ataque)
+        redibujar_combate()
+
+        def lanzar_bola(torre, enemigo):
+            """Anima una pequeña bola que viaja de la torre al enemigo que está atacando."""
+            x0 = torre.columna * tamaño + tamaño / 2
+            y0 = torre.fila * tamaño + tamaño / 2
+            x1 = enemigo.columna * tamaño + tamaño / 2
+            y1 = enemigo.fila * tamaño + tamaño / 2
+            bola = canvas_ataque.create_oval(x0 - 4, y0 - 4, x0 + 4, y0 + 4, fill="black", tags="bola")
+
+            pasos = 6
+            dx = (x1 - x0) / pasos
+            dy = (y1 - y0) / pasos
+
+            def animar(paso_actual=0):
+                if paso_actual >= pasos:
+                    canvas_ataque.delete(bola)
+                    return
+                canvas_ataque.move(bola, dx, dy)
+                atacar.after(25, lambda: animar(paso_actual + 1))
+            animar()
+
+        def ciclo_combate():
+            global dinero_jugador1, dinero_jugador2
+            nonlocal combate_activo
+
+            if not combate_activo:
+                return
+
+            # --- Fase de ataque de las torres ---
+            enemigos_vivos = [e for e in enemigos_colocados if e.vida > 0]
+            for estructura in estructuras_vivas:
+                if isinstance(estructura, Torre) and estructura.vida > 0:
+                    objetivo = estructura.elegir_objetivo(enemigos_vivos)
+                    if objetivo is not None:
+                        lanzar_bola(estructura, objetivo)
+                        enemigo_destruido = estructura.atacar()
+                        if enemigo_destruido is not None:
+                            dinero_jugador1 += enemigo_destruido.costo
+                            texto_dinero1_combate.config(text=f"Dinero defensor: {dinero_jugador1}")
+                            enemigos_vivos = [e for e in enemigos_colocados if e.vida > 0]
+
+            # --- Fase de movimiento / ataque de los enemigos ---
+            estructuras_en_pie = [s for s in estructuras_vivas if s.vida > 0]
+            for enemigo in enemigos_vivos:
+                if enemigo.vida <= 0:
+                    continue
+                if enemigo.objetivo is None or enemigo.objetivo.vida <= 0:
+                    enemigo.buscar_objetivo(estructuras_en_pie)
+                estructura_destruida = enemigo.mover_o_atacar(estructuras_en_pie)
+                if estructura_destruida is not None:
+                    if isinstance(estructura_destruida, BaseCentral):
+                        redibujar_combate()
+                        terminar_ronda("atacante")
+                        return
+                    elif isinstance(estructura_destruida, Torre):
+                        dinero_jugador2 += estructura_destruida.costo
+                        texto_dinero2.config(text=f"Dinero atacante: {dinero_jugador2}")
+                        estructuras_en_pie = [s for s in estructuras_vivas if s.vida > 0]
+                    # Si lo destruido fue un muro, simplemente desaparece (no da dinero)
+
+            redibujar_combate()
+
+            if not any(e.vida > 0 for e in enemigos_colocados):
+                terminar_ronda("defensor")
+                return
+
+            atacar.after(INTERVALO_COMBATE, ciclo_combate)
+
+        def terminar_ronda(ganador):
+            nonlocal combate_activo
+            global rondas_ganadas_defensor, rondas_ganadas_atacante
+            combate_activo = False
+
+            if ganador == "defensor":
+                rondas_ganadas_defensor += 1
+                mensaje = "¡El defensor ganó esta ronda!"
+            else:
+                rondas_ganadas_atacante += 1
+                mensaje = "¡El atacante ganó esta ronda!"
+
+            tk.Label(atacar, text=f"{mensaje}\nMarcador -> Defensor: {rondas_ganadas_defensor}   Atacante: {rondas_ganadas_atacante}",
+                    bg="#b6a38d", fg="darkred", justify="center",
+                    font=("Arial", 18, "bold")).place(relx=0.32, rely=0.45)
+
+            if rondas_ganadas_defensor >= 3 or rondas_ganadas_atacante >= 3:
+                ganador_partida = "defensor" if rondas_ganadas_defensor >= 3 else "atacante"
+                nombre_ganador = nombre_jugador1 if ganador_partida == "defensor" else nombre_jugador2
+                actualizar_victoria(nombre_ganador, ganador_partida)
+
+                def volver_al_menu():
+                    atacar.destroy()
+                    menu.pack(fill="both", expand=True)
+
+                tk.Button(atacar, text=f"¡{nombre_ganador or 'Jugador'} gana la partida!  Volver al menú",
+                        relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+                    command=volver_al_menu
+                ).place(relx=0.30, rely=0.55)
+            else:
+                tk.Button(atacar, text="Siguiente ronda",
+                        relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+                    command=lambda: iniciar_partida(atacar)
+                ).place(relx=0.35, rely=0.55)
+
+        def iniciar_ataque():
+            nonlocal combate_activo
+            if combate_activo:
+                return
+            combate_activo = True
+            boton_iniciar_ataque.config(state="disabled")
+            ciclo_combate()
+
+        boton_iniciar_ataque = tk.Button(atacar, text="Iniciar Ataque", width=12,
+                relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+            command=iniciar_ataque
+        )
+        boton_iniciar_ataque.place(relx=0.9, rely=0.9)
+
+        def terminar_juego_atacante():
+            nonlocal combate_activo
+            combate_activo = False
+            atacar.pack_forget()
+            menu.pack(fill="both", expand=True)
+
+        tk.Button(atacar, text="Terminar juego", width=12,
+                relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
+            command=terminar_juego_atacante
+        ).place(relx=0.7, rely=0.95)
 
     #===============================================================================================================================
 
@@ -506,11 +858,24 @@ def iniciar_partida(frame_origen=menu):
 
 #===============================================================================================================================
 
+
+
+
+
+
+
+
+
 #======================Frame donde se inicia sesion o se crea la cuenta=======================
 def jugar():
-    global dinero_jugador1,dinero_jugador2
-    dinero_jugador1 = 30
-    dinero_jugador2 = 30
+    global dinero_jugador1, dinero_jugador2, rondas_ganadas_defensor, rondas_ganadas_atacante
+    global nombre_jugador1, nombre_jugador2
+    dinero_jugador1 = DINERO_INICIAL
+    dinero_jugador2 = DINERO_INICIAL + 10
+    rondas_ganadas_defensor = 0
+    rondas_ganadas_atacante = 0
+    nombre_jugador1 = None
+    nombre_jugador2 = None
     #=========================Jugador 1===========================
     registrar1 = tk.Frame(menu)
     registrar1.place(relx = 0.31, rely=0.1)
@@ -729,8 +1094,9 @@ def jugar():
         entrada_contraseña2 = tk.Entry(registrar2, width=15)
         entrada_contraseña2.place(relx=0.3,rely=0.51)
 
-        def jugador2_preparado():
-            global jugador2_listo
+        def jugador2_preparado(nombre):
+            global jugador2_listo, nombre_jugador2
+            nombre_jugador2 = nombre
             texto_label2_4.place_forget()
             entrada_usuario2.place_forget()
             texto_label2_5 .place_forget()
@@ -752,7 +1118,7 @@ def jugar():
             for usuario in usuarios:
                 if (usuario["nombre"] == entrada_usuario2.get() and
                     usuario["contrasena"] == entrada_contraseña2.get()):
-                    jugador2_preparado()
+                    jugador2_preparado(usuario["nombre"])
                     return usuario
             texto_label2_4.config(text="Usuario incorrecto")
             texto_label2_5.config(text="O contraseña incorrecto")
@@ -807,10 +1173,11 @@ def jugar():
 
             with open("usuarios.json", "w") as archivo:
                 json.dump(usuarios, archivo, indent=4)
-            jugador2_preparado()
+            jugador2_preparado(usuario.nombre)
 
-        def jugador2_preparado():
-            global jugador2_listo
+        def jugador2_preparado(nombre):
+            global jugador2_listo, nombre_jugador2
+            nombre_jugador2 = nombre
             texto_label2_4.place_forget()
             entrada_usuario2.place_forget()
             texto_label2_5 .place_forget()
@@ -867,6 +1234,18 @@ def jugar():
 
 
 
+#===================================Frame donde estaran las estadisticas=========================================
+def estadisticas():
+    pass
+#================================================================================================================
+
+
+
+
+
+
+
+
 tk.Button(portada, text="JUGAR",width=15, 
                         relief="groove",bd=15, bg="#b6a38d", 
                         fg="#462d1c", command=entrar, font=(10)).place(relx=0.43,rely=0.45)
@@ -875,7 +1254,7 @@ tk.Button(interfaz, text="JUGAR",width=15,
                         fg="#462d1c", command=jugar).place(relx=0.45,rely=0.1)
 tk.Button(interfaz, text="Estadisticas",width=15, 
                         relief="groove",bd=15, bg="#b6a38d", 
-                        fg="#462d1c", command=iniciar_partida).place(relx=0.45,rely=0.2)
+                        fg="#462d1c", command=estadisticas).place(relx=0.45,rely=0.2)
 
 tk.Button(interfaz, text="SALIR",width=15, 
                         relief="groove",bd=15, bg="#b6a38d", 
