@@ -290,8 +290,14 @@ def actualizar_victoria(nombre, rol_ganador):
 
 #===================================Frame donde se empezara el juego=========================================================== 
 
-def iniciar_partida():
+def iniciar_partida(frame_origen=menu):
     global dinero_jugador1, dinero_jugador2
+ 
+    if frame_origen is menu:
+        frame_origen.pack_forget()
+    else:
+        frame_origen.destroy()
+
 
     menu.pack_forget()
 
@@ -360,7 +366,7 @@ def iniciar_partida():
     imagen_cuadricula.image = imagen_tk3
     imagen_cuadricula.place(relx=0,rely=0)
     #====================================================================================
-    
+
     tamaño = 40
     tamaño_matriz = 15
     
@@ -614,26 +620,25 @@ def iniciar_partida():
         tk.Button(atacar, text="Borrar", width=8,
                 relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
             command=lambda: seleccionar_herramienta_atacante(0)
-        ).place(relx=0.7, rely=0.85)
+        ).place(relx=0.65, rely=0.8)
 
         tk.Button(atacar, text="Enemigo Básico", width=13,
                 relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
             command=lambda: seleccionar_herramienta_atacante(1)
-        ).place(relx=0.65, rely=0.42)
+        ).place(relx=0.62, rely=0.37)
 
         tk.Button(atacar, text="Enemigo Rápido", width=13,
                 relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
             command=lambda: seleccionar_herramienta_atacante(2)
-        ).place(relx=0.65, rely=0.52)
+        ).place(relx=0.62, rely=0.47)
 
         tk.Button(atacar, text="Enemigo Fuerte", width=13,
                 relief="groove", bd=5, bg="#b6a38d", fg="#462d1c",
             command=lambda: seleccionar_herramienta_atacante(3)
-        ).place(relx=0.65, rely=0.62)
+        ).place(relx=0.62, rely=0.57)
 
         def hay_enemigo_en(fila, columna):
-            return any(enemigo.vida > 0 and round(enemigo.fila) == fila and round(enemigo.columna) == columna
-                       for enemigo in enemigos_colocados)
+            return any(enemigo.vida > 0 and round(enemigo.fila) == fila and round(enemigo.columna) == columna for enemigo in enemigos_colocados)
 
         def redibujar_combate():
             canvas_ataque.delete("dinamico")
