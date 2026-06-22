@@ -38,14 +38,14 @@
     {
         "nombre": "cris",
         "contrasena": "4321",
-        "victorias_atacante": 5,
+        "victorias_atacante": 6,
         "victorias_defensor": 4
     },
     {
         "nombre": "1",
         "contrasena": "1",
         "victorias_atacante": 0,
-        "victorias_defensor": 0
+        "victorias_defensor": 2
     },
     {
         "nombre": "2",
